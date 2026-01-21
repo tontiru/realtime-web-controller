@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Real-time Controller - Controller</title>
+    <link rel="stylesheet" type="text/css" href="style.css">
+</head>
+<body>
+    <div id="join-view">
+        <input type="text" id="lobby-code-input" placeholder="Enter Lobby Code">
+        <button id="join-lobby">Join Lobby</button>
+    </div>
+    <div id="controller-view" style="display: none;">
+        <button id="action-button">Press Me</button>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="controller.js"></script>
+</body>
+</html>

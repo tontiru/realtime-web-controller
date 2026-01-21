@@ -1,0 +1,21 @@
+# Development Dockerfile with hot reload
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Copy package files
+COPY package.json package-lock.json* ./
+COPY client/package.json client/package-lock.json* ./client/
+
+# Install dependencies
+RUN npm ci && npm cache clean --force
+RUN cd client && npm ci && npm cache clean --force
+
+# Copy all files
+COPY . .
+
+# Expose ports
+EXPOSE 3000 3001
+
+# Start development servers
+CMD ["sh", "-c", "node server.js & cd client && npm run dev"]
