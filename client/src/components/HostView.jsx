@@ -126,7 +126,7 @@ function HostView() {
                     className="p-4 bg-white rounded-lg mt-2"
                   >
                     <QRCodeCanvas
-                      value={`${window.location.origin}/controller?lobbyId=${lobbyId}`}
+                      value={`${window.location.origin}/?lobbyId=${lobbyId}`}
                       size={160}
                       bgColor={"#ffffff"}
                       fgColor={"#000000"}
@@ -177,7 +177,7 @@ function HostView() {
                     )}
                   </AnimatePresence>
                   <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                    <Link to={`/controller?lobbyId=${lobbyId}`} target="_blank">
+                    <Link to={`/?lobbyId=${lobbyId}`} target="_blank">
                       <Button variant="link">
                           <LinkIcon className="w-4 h-4 mr-2" />
                           Open Controller
