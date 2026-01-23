@@ -63,23 +63,36 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('controller-input', (data) => {
-    console.log('controller-input received:', data);
-    const lobbyId = data.lobbyId || data;
-    console.log('lobbyId:', lobbyId);
-    if (lobbies[lobbyId]) {
-      const player = lobbies[lobbyId].players.find(p => p.id === socket.id);
-      console.log('player found:', player);
-      if (player) {
-        // Only increment on press, not on release
-        if (data.action === "press") {
-          player.score += 1;
-          console.log('score incremented to:', player.score);
-          io.to(lobbyId).emit('player-updated', lobbies[lobbyId].players);
-        }
-      }
-    }
-  });
+socket.on('controller-input', (data) => {
+  console.log('controller-input received:', data);
+
+  const lobbyId = data.lobbyId;
+  if (!lobbyId) return;
+
+  const lobby = lobbies[lobbyId];
+  if (!lobby) {
+    console.warn('Lobby not found:', lobbyId);
+    return;
+  }
+
+  const player = lobby.players.find(p => p.id === socket.id);
+  if (!player) {
+    console.warn('Player not found for socket:', socket.id);
+    return;
+  }
+
+  const unityEvent = {
+    type: "BUTTON",
+    action: data.action,   // "press" | "release"
+    playerId: player.id,
+    playerName: player.name,
+  };
+
+  console.log('Emitting unity-event:', unityEvent);
+
+  io.to(lobbyId).emit('unity-event', unityEvent);
+});
+
 
   socket.on('disconnect', () => {
     console.log('user disconnected');
