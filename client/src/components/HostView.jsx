@@ -135,6 +135,20 @@ function HostView() {
               className="text-center"
             >
               <CardDescription>Share this code with players</CardDescription>
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.25 }}
+                className="w-full aspect-video my-6 rounded-lg overflow-hidden bg-black border"
+              >
+                <iframe
+                  src="/unity/index.html"
+                  title="Unity Game"
+                  className="w-full h-full"
+                  allow="fullscreen; autoplay"
+                />
+              </motion.div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
                 <motion.div
                   initial={{ opacity: 0, scale: 0.8 }}
