@@ -26,6 +26,29 @@ function HostView() {
   const playersPerPage = 5;
 
   useEffect(() => {
+  const handleUnityEvent = (data) => {
+    console.log("Unity event received:", data);
+
+    if (window.unityInstance) {
+      window.unityInstance.SendMessage(
+        "WebGLBridge",          // GameObject name in Unity
+        "OnControllerEvent",   // Method name in C#
+        JSON.stringify(data)
+      );
+    } else {
+      console.warn("Unity instance not ready yet");
+    }
+  };
+
+  socket.on("unity-event", handleUnityEvent);
+
+  return () => {
+    socket.off("unity-event", handleUnityEvent);
+  };
+}, [socket]);
+
+  
+  useEffect(() => {
     socket.on('lobby-created', (newLobbyId) => {
       setLobbyId(newLobbyId);
     });
