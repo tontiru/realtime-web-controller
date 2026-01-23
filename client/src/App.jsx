@@ -1,5 +1,5 @@
-import React from 'react';
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { BrowserRouter as Router, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { SocketProvider } from './contexts/SocketContext.jsx';
 import Home from './components/Home.jsx';
 import HostView from './components/HostView.jsx';
@@ -7,10 +7,28 @@ import ControllerView from './components/ControllerView.jsx';
 import NotFound from './components/NotFound.jsx';
 import './App.css';
 
+function AutoControllerRedirect() {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const lobbyId = params.get("lobbyId");
+
+    // If we're at "/" with a lobbyId, auto-redirect to controller
+    if (lobbyId && location.pathname === "/") {
+      navigate(`/controller?lobbyId=${lobbyId}`, { replace: true });
+    }
+  }, [location, navigate]);
+
+  return null;
+}
+
 function App() {
   return (
     <SocketProvider>
       <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <AutoControllerRedirect />
         <div className="App">
           <Routes>
             <Route path="/" element={<Home />} />
@@ -23,5 +41,6 @@ function App() {
     </SocketProvider>
   );
 }
+
 
 export default App;
