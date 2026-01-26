@@ -1,27 +1,48 @@
 <!DOCTYPE html>
-<html lang="en-us">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Unity WebGL Player | BSG</title>
+  <title>Unity WebGL | BSG</title>
 
-  <link rel="shortcut icon" href="TemplateData/favicon.ico" />
   <link rel="stylesheet" href="TemplateData/style.css" />
+  <link rel="shortcut icon" href="TemplateData/favicon.ico" />
 
   <style>
     html, body {
+      margin: 0;
+      padding: 0;
+      background: black;
       width: 100%;
       height: 100%;
-      margin: 0;
-      background: black;
       overflow: hidden;
+    }
+
+    #unity-container {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: black;
+    }
+
+    /* 🚫 FIXED SIZE — NO RESPONSIVE SCALING */
+    #unity-canvas {
+      width: 960px !important;
+      height: 600px !important;
+      background: black;
     }
   </style>
 </head>
 
 <body>
-  <canvas id="unity-canvas"></canvas>
+  <div id="unity-container">
+    <canvas id="unity-canvas"></canvas>
+  </div>
 
   <script>
+    const canvas = document.getElementById("unity-canvas");
+
     const buildUrl = "Build";
     const loaderUrl = buildUrl + "/WebSocketTest.loader.js";
 
@@ -33,33 +54,28 @@
       companyName: "DefaultCompany",
       productName: "BSG",
       productVersion: "0.1.0",
+      devicePixelRatio: 1, // 🚫 CRITICAL
     };
-
-    const canvas = document.querySelector("#unity-canvas");
 
     const script = document.createElement("script");
     script.src = loaderUrl;
 
     script.onload = () => {
-      createUnityInstance(canvas, config).then((unityInstance) => {
-        window.unityInstance = unityInstance;
+      createUnityInstance(canvas, config)
+        .then((unityInstance) => {
+          window.unityInstance = unityInstance;
 
-        // Tell React we're ready
-        window.parent.postMessage({ type: "UNITY_READY" }, "*");
+          // ✅ Handshake with React
+          window.parent?.postMessage(
+            { type: "UNITY_READY" },
+            "*"
+          );
 
-        // Listen for React → Unity messages
-        window.addEventListener("message", (event) => {
-          if (event.data?.type === "FROM_REACT") {
-            unityInstance.SendMessage(
-              "WebGLBridge",
-              "OnControllerEvent",
-              JSON.stringify(event.data.payload)
-            );
-          }
+          console.log("Unity ready");
+        })
+        .catch((err) => {
+          console.error(err);
         });
-
-        console.log("✅ Unity fully initialized");
-      });
     };
 
     document.body.appendChild(script);

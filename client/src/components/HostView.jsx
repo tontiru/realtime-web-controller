@@ -1,21 +1,10 @@
 import React, { useEffect, useState, useMemo, useRef } from "react";
 import { useSocket } from "../contexts/SocketContext.jsx";
 import { Button } from "components/ui/button";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent
-} from "components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent } from "components/ui/card";
 import { Input } from "components/ui/input";
 import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableHead,
-  TableRow,
-  TableCell
+  Table, TableHeader, TableBody, TableHead, TableRow, TableCell
 } from "components/ui/table";
 import { Users, ClipboardCopy } from "lucide-react";
 import { QRCodeCanvas } from "qrcode.react";
@@ -26,48 +15,38 @@ function HostView() {
 
   const [lobbyId, setLobbyId] = useState("");
   const [players, setPlayers] = useState([]);
-  const [copied, setCopied] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
   const [unityReady, setUnityReady] = useState(false);
 
-  /* =========================
-     UNITY HANDSHAKE
-     ========================= */
+  // ✅ Unity handshake
   useEffect(() => {
-    const onMessage = (event) => {
+    const handler = (event) => {
       if (event.data?.type === "UNITY_READY") {
-        console.log("✅ Unity handshake received");
         setUnityReady(true);
+        console.log("Unity handshake OK");
       }
     };
 
-    window.addEventListener("message", onMessage);
-    return () => window.removeEventListener("message", onMessage);
+    window.addEventListener("message", handler);
+    return () => window.removeEventListener("message", handler);
   }, []);
 
-  /* =========================
-     SOCKET → UNITY BRIDGE
-     ========================= */
+  // ✅ Socket → Unity bridge
   useEffect(() => {
-    const handleUnityEvent = (data) => {
-      if (!unityReady || !iframeRef.current) return;
+    const handler = (data) => {
+      if (!unityReady || !window.unityInstance) return;
 
-      iframeRef.current.contentWindow.postMessage(
-        {
-          type: "FROM_REACT",
-          payload: data
-        },
-        "*"
+      window.unityInstance.SendMessage(
+        "WebGLBridge",
+        "OnControllerEvent",
+        JSON.stringify(data)
       );
     };
 
-    socket.on("unity-event", handleUnityEvent);
-    return () => socket.off("unity-event", handleUnityEvent);
-  }, [socket, unityReady]);
+    socket.on("unity-event", handler);
+    return () => socket.off("unity-event", handler);
+  }, [unityReady, socket]);
 
-  /* =========================
-     LOBBY STATE
-     ========================= */
+  // Lobby lifecycle
   useEffect(() => {
     socket.on("lobby-created", setLobbyId);
     socket.on("player-joined", setPlayers);
@@ -82,18 +61,7 @@ function HostView() {
 
   const createLobby = () => socket.emit("create-lobby");
 
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(lobbyId);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  };
-
-  const filteredPlayers = useMemo(() => {
-    if (!searchTerm) return players;
-    return players.filter(p =>
-      p.name.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [players, searchTerm]);
+  const filteredPlayers = useMemo(() => players, [players]);
 
   return (
     <div className="flex justify-center min-h-screen p-6">
@@ -109,21 +77,31 @@ function HostView() {
             </Button>
           ) : (
             <>
-              {/* UNITY IFRAME */}
-              <div className="w-full aspect-video bg-black rounded-lg overflow-hidden mb-6">
+              {/* 🔒 FIXED UNITY CONTAINER */}
+              <div
+                style={{
+                  width: 960,
+                  height: 600,
+                  margin: "0 auto",
+                  background: "black",
+                }}
+              >
                 <iframe
                   ref={iframeRef}
                   src="/unity/index.html"
                   title="Unity Game"
-                  className="w-full h-full"
-                  allow="fullscreen"
+                  width="960"
+                  height="600"
+                  style={{
+                    border: "none",
+                    pointerEvents: unityReady ? "auto" : "none",
+                  }}
                 />
               </div>
 
-              {/* QR + CODE */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-center">
+              <div className="grid grid-cols-2 gap-6 mt-6 text-center">
                 <div>
-                  <CardDescription>Scan with phone</CardDescription>
+                  <p>Scan to join</p>
                   <QRCodeCanvas
                     value={`${window.location.origin}/?lobbyId=${lobbyId}`}
                     size={160}
@@ -131,28 +109,25 @@ function HostView() {
                 </div>
 
                 <div>
-                  <CardDescription>Lobby Code</CardDescription>
-                  <h2 className="text-5xl font-bold tracking-widest">{lobbyId}</h2>
-                  <Button variant="ghost" onClick={copyToClipboard}>
+                  <p>Lobby Code</p>
+                  <h2 className="text-5xl font-bold tracking-widest">
+                    {lobbyId}
+                  </h2>
+                  <Button
+                    variant="ghost"
+                    onClick={() => navigator.clipboard.writeText(lobbyId)}
+                  >
                     <ClipboardCopy className="mr-2" />
                     Copy
                   </Button>
-                  {copied && <p className="text-green-500">Copied!</p>}
                 </div>
               </div>
 
-              {/* PLAYERS */}
               <div className="mt-8">
-                <h3 className="text-xl font-bold mb-4 flex items-center justify-center">
-                  <Users className="mr-2" /> Players ({players.length})
+                <h3 className="text-xl font-bold flex justify-center items-center">
+                  <Users className="mr-2" />
+                  Players ({players.length})
                 </h3>
-
-                <Input
-                  placeholder="Search players..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="mb-4"
-                />
 
                 <Table>
                   <TableHeader>
