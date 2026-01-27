@@ -95,25 +95,25 @@ socket.on("controller-input", (data) => {
   const { lobbyId, type, action } = data;
   if (!lobbies[lobbyId]) return;
 
+  // 👇 Player is OPTIONAL for Unity
   const player = lobbies[lobbyId].players.find(p => p.id === socket.id);
-  if (!player) return;
 
-  if (action === "press") {
+  // Score logic (only if player exists)
+  if (player && action === "press") {
     player.score += 1;
-
-    // 🔁 Update host UI
     io.to(lobbyId).emit("player-updated", lobbies[lobbyId].players);
-
-    // 🚀 SEND TO UNITY
-    io.to(lobbyId).emit("unity-event", {
-      type: "BUTTON",
-      action: "press",
-      playerId: socket.id,
-    });
-
-    console.log("[SERVER] unity-event emitted");
   }
+
+  // 🚀 ALWAYS forward to Unity
+  io.to(lobbyId).emit("unity-event", {
+    type: type || "BUTTON",
+    action,
+    playerId: socket.id,
+  });
+
+  console.log("[SERVER] unity-event emitted", { lobbyId, action });
 });
+
 
 
   io.to(lobbyId).emit("player-updated", lobbies[lobbyId].players);
