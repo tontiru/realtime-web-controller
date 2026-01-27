@@ -100,14 +100,21 @@ socket.on("controller-input", (data) => {
 
   if (action === "press") {
     player.score += 1;
-  }
 
-  // 🔥 THIS IS THE MISSING LINK 🔥
-  io.to(lobbyId).emit("unity-event", {
-    type: "BUTTON",
-    action,
-    playerId: player.id,
-  });
+    // 🔁 Update host UI
+    io.to(lobbyId).emit("player-updated", lobbies[lobbyId].players);
+
+    // 🚀 SEND TO UNITY
+    io.to(lobbyId).emit("unity-event", {
+      type: "BUTTON",
+      action: "press",
+      playerId: socket.id,
+    });
+
+    console.log("[SERVER] unity-event emitted");
+  }
+});
+
 
   io.to(lobbyId).emit("player-updated", lobbies[lobbyId].players);
 });
