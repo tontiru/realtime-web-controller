@@ -2,9 +2,13 @@ import React, { useEffect, useState, useMemo, useRef } from "react";
 import { useSocket } from "../contexts/SocketContext.jsx";
 import { Button } from "components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "components/ui/card";
-import { Input } from "components/ui/input";
 import {
-  Table, TableHeader, TableBody, TableHead, TableRow, TableCell
+  Table,
+  TableHeader,
+  TableBody,
+  TableHead,
+  TableRow,
+  TableCell,
 } from "components/ui/table";
 import { Users, ClipboardCopy } from "lucide-react";
 import { QRCodeCanvas } from "qrcode.react";
@@ -17,36 +21,47 @@ function HostView() {
   const [players, setPlayers] = useState([]);
   const [unityReady, setUnityReady] = useState(false);
 
-  // ✅ Unity handshake
+  /* --------------------------------------------------
+   *  UNITY HANDSHAKE (iframe → React)
+   * -------------------------------------------------- */
   useEffect(() => {
-    const handler = (event) => {
+    const onMessage = (event) => {
       if (event.data?.type === "UNITY_READY") {
+        console.log("✅ Unity handshake OK");
         setUnityReady(true);
-        console.log("Unity handshake OK");
       }
     };
 
-    window.addEventListener("message", handler);
-    return () => window.removeEventListener("message", handler);
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
   }, []);
 
-  // ✅ Socket → Unity bridge
+  /* --------------------------------------------------
+   *  SOCKET → UNITY BRIDGE
+   * -------------------------------------------------- */
   useEffect(() => {
-    const handler = (data) => {
-      if (!unityReady || !window.unityInstance) return;
+    const forwardToUnity = (data) => {
+      if (!window.unityInstance) {
+        console.warn("⚠️ Unity instance not ready yet");
+        return;
+      }
+
+      console.log("➡️ Forwarding to Unity:", data);
 
       window.unityInstance.SendMessage(
-        "WebGLBridge",
-        "OnControllerEvent",
+        "WebGLBridge",          // GameObject name
+        "OnControllerEvent",   // Method name
         JSON.stringify(data)
       );
     };
 
-    socket.on("unity-event", handler);
-    return () => socket.off("unity-event", handler);
-  }, [unityReady, socket]);
+    socket.on("unity-event", forwardToUnity);
+    return () => socket.off("unity-event", forwardToUnity);
+  }, [socket]);
 
-  // Lobby lifecycle
+  /* --------------------------------------------------
+   *  LOBBY EVENTS
+   * -------------------------------------------------- */
   useEffect(() => {
     socket.on("lobby-created", setLobbyId);
     socket.on("player-joined", setPlayers);
@@ -61,8 +76,11 @@ function HostView() {
 
   const createLobby = () => socket.emit("create-lobby");
 
-  const filteredPlayers = useMemo(() => players, [players]);
+  const playersList = useMemo(() => players, [players]);
 
+  /* --------------------------------------------------
+   *  RENDER
+   * -------------------------------------------------- */
   return (
     <div className="flex justify-center min-h-screen p-6">
       <Card className="w-full max-w-5xl">
@@ -77,7 +95,7 @@ function HostView() {
             </Button>
           ) : (
             <>
-              {/* 🔒 FIXED UNITY CONTAINER */}
+              {/* UNITY IFRAME */}
               <div
                 style={{
                   width: 960,
@@ -99,6 +117,7 @@ function HostView() {
                 />
               </div>
 
+              {/* LOBBY INFO */}
               <div className="grid grid-cols-2 gap-6 mt-6 text-center">
                 <div>
                   <p>Scan to join</p>
@@ -115,7 +134,9 @@ function HostView() {
                   </h2>
                   <Button
                     variant="ghost"
-                    onClick={() => navigator.clipboard.writeText(lobbyId)}
+                    onClick={() =>
+                      navigator.clipboard.writeText(lobbyId)
+                    }
                   >
                     <ClipboardCopy className="mr-2" />
                     Copy
@@ -123,24 +144,29 @@ function HostView() {
                 </div>
               </div>
 
+              {/* PLAYER LIST */}
               <div className="mt-8">
                 <h3 className="text-xl font-bold flex justify-center items-center">
                   <Users className="mr-2" />
-                  Players ({players.length})
+                  Players ({playersList.length})
                 </h3>
 
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Name</TableHead>
-                      <TableHead className="text-right">Score</TableHead>
+                      <TableHead className="text-right">
+                        Score
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredPlayers.map((p) => (
+                    {playersList.map((p) => (
                       <TableRow key={p.id}>
                         <TableCell>{p.name}</TableCell>
-                        <TableCell className="text-right">{p.score}</TableCell>
+                        <TableCell className="text-right">
+                          {p.score}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

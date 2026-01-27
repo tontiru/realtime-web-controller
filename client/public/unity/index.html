@@ -26,11 +26,12 @@
       background: black;
     }
 
-    /* 🚫 FIXED SIZE — NO RESPONSIVE SCALING */
+    /* 🔒 FIXED SIZE — NO RESPONSIVE SCALING */
     #unity-canvas {
-      width: 960px !important;
-      height: 600px !important;
+      width: 960px;
+      height: 600px;
       background: black;
+      display: block;
     }
   </style>
 </head>
@@ -43,6 +44,10 @@
   <script>
     const canvas = document.getElementById("unity-canvas");
 
+    // 🔒 HARD-LOCK ACTUAL CANVAS RESOLUTION
+    canvas.width = 960;
+    canvas.height = 600;
+
     const buildUrl = "Build";
     const loaderUrl = buildUrl + "/WebSocketTest.loader.js";
 
@@ -54,7 +59,10 @@
       companyName: "DefaultCompany",
       productName: "BSG",
       productVersion: "0.1.0",
-      devicePixelRatio: 1, // 🚫 CRITICAL
+
+      // 🔒 CRITICAL FOR WEBGL STABILITY
+      devicePixelRatio: 1,
+      matchWebGLToCanvasSize: true,
     };
 
     const script = document.createElement("script");
@@ -63,18 +71,24 @@
     script.onload = () => {
       createUnityInstance(canvas, config)
         .then((unityInstance) => {
+          // expose for HostView
           window.unityInstance = unityInstance;
 
-          // ✅ Handshake with React
-          window.parent?.postMessage(
-            { type: "UNITY_READY" },
-            "*"
-          );
+          // ✅ GUARANTEED HANDSHAKE WITH HOST
+          try {
+            if (window.parent && window.parent !== window) {
+              window.parent.postMessage({ type: "UNITY_READY" }, "*");
+            } else {
+              window.postMessage({ type: "UNITY_READY" }, "*");
+            }
+          } catch (e) {
+            console.warn("UNITY_READY postMessage failed:", e);
+          }
 
           console.log("Unity ready");
         })
         .catch((err) => {
-          console.error(err);
+          console.error("Unity failed to load:", err);
         });
     };
 
