@@ -94,27 +94,28 @@ io.on("connection", (socket) => {
   });
 
   /* -------- CONTROLLER INPUT -------- */
-  socket.on("controller-input", (data) => {
-    const { lobbyId, type, action } = data;
-    if (!lobbies[lobbyId]) return;
+	socket.on("controller-input", (data) => {
+	  const { lobbyId, type, action } = data;
+	  if (!lobbies[lobbyId]) return;
 
-    const player = lobbies[lobbyId].players.find(
-      (p) => p.id === socket.id
-    );
+	  const player = lobbies[lobbyId].players.find(
+		(p) => p.id === socket.id
+	  );
 
-    if (player && action === "press") {
-      player.score += 1;
-      io.to(lobbyId).emit("player-updated", lobbies[lobbyId].players);
-    }
+	  if (player && action === "press") {
+		player.score += 1;
+		io.to(lobbyId).emit("player-updated", lobbies[lobbyId].players);
+	  }
 
-    io.to(lobbyId).emit("unity-event", {
-      type: type || "BUTTON",
-      action,
-      playerId: socket.id,
-    });
+	  io.to(lobbyId).emit("unity-event", {
+		type: type || "BUTTON",
+		action,
+		playerId: socket.id,
+	  });
 
-    console.log("[SERVER] unity-event emitted:", lobbyId, action);
-  });
+	  console.log("[SERVER] unity-event emitted:", lobbyId, action);
+	});
+
 
   /* -------- DISCONNECT -------- */
   socket.on("disconnect", () => {
