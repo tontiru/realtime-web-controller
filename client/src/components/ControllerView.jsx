@@ -109,24 +109,6 @@ const handleButtonPress = () => {
   socket.emit("controller-input", payload);
 };
 
-
-const handleButtonRelease = () => {
-  if (!lobbyId || !player) return;
-
-  socket.emit("controller-input", {
-    lobbyId,
-    type: "BUTTON",
-    action: "release",
-    playerId: player.id
-  });
-
-  console.log("Sent BUTTON release");
-};
-
-
-
-
-
   // Render controller view if joined successfully
   if (player) {
     return (
