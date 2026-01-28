@@ -26,8 +26,11 @@ function HostView() {
    * -------------------------------------------------- */
   useEffect(() => {
     const onMessage = (event) => {
+      // 🔧 FIX: ensure message comes from the iframe
+      if (event.source !== iframeRef.current?.contentWindow) return;
+
       if (event.data?.type === "UNITY_READY") {
-        console.log("✅ Unity handshake OK");
+        console.log("✅ Unity handshake OK (iframe)");
         setUnityReady(true);
       }
     };
@@ -37,28 +40,47 @@ function HostView() {
   }, []);
 
   /* --------------------------------------------------
-   *  ENSURE HOST JOINS LOBBY ROOM  🔑 (NEW)
+   *  LOBBY EVENTS
    * -------------------------------------------------- */
   useEffect(() => {
-    if (!lobbyId) return;
+    const onLobbyCreated = (id) => {
+      console.log("[HOST] lobby created:", id);
+      setLobbyId(id);
 
-    console.log("[HOST] joining lobby room:", lobbyId);
-    socket.emit("join-lobby-room", lobbyId);
-  }, [lobbyId, socket]);
+      // 🔧 FIX: host explicitly joins room
+      socket.emit("join-lobby-room", id);
+    };
+
+    socket.on("lobby-created", onLobbyCreated);
+    socket.on("player-joined", setPlayers);
+    socket.on("player-updated", setPlayers);
+
+    return () => {
+      socket.off("lobby-created", onLobbyCreated);
+      socket.off("player-joined", setPlayers);
+      socket.off("player-updated", setPlayers);
+    };
+  }, [socket]);
 
   /* --------------------------------------------------
    *  SOCKET → UNITY BRIDGE
    * -------------------------------------------------- */
   useEffect(() => {
     const forwardToUnity = (data) => {
-      if (!window.unityInstance) {
-        console.warn("⚠️ Unity instance not ready yet");
+      console.log("✅ Host received unity-event:", data); // 🔧 HARD PROOF LOG
+
+      // 🔧 FIX: Unity lives inside the iframe
+      const unityWin = iframeRef.current?.contentWindow;
+      const unityInstance = unityWin?.unityInstance;
+
+      if (!unityInstance) {
+        console.warn("⚠️ Unity instance not ready in iframe");
         return;
       }
 
       console.log("➡️ Forwarding to Unity:", data);
 
-      window.unityInstance.SendMessage(
+      unityInstance.SendMessage(
         "WebGLBridge",
         "OnControllerEvent",
         JSON.stringify(data)
@@ -69,30 +91,7 @@ function HostView() {
     return () => socket.off("unity-event", forwardToUnity);
   }, [socket]);
 
-  /* --------------------------------------------------
-   *  LOBBY EVENTS
-   * -------------------------------------------------- */
-useEffect(() => {
-  const onLobbyCreated = (id) => {
-    console.log("[HOST] lobby created:", id);
-    setLobbyId(id);
-    socket.emit("join-lobby-room", id);
-  };
-
-  socket.on("lobby-created", onLobbyCreated);
-  socket.on("player-joined", setPlayers);
-  socket.on("player-updated", setPlayers);
-
-  return () => {
-    socket.off("lobby-created", onLobbyCreated);
-    socket.off("player-joined", setPlayers);
-    socket.off("player-updated", setPlayers);
-  };
-}, [socket]);
-
-
   const createLobby = () => socket.emit("create-lobby");
-
   const playersList = useMemo(() => players, [players]);
 
   /* --------------------------------------------------
@@ -113,14 +112,7 @@ useEffect(() => {
           ) : (
             <>
               {/* UNITY IFRAME */}
-              <div
-                style={{
-                  width: 960,
-                  height: 600,
-                  margin: "0 auto",
-                  background: "black",
-                }}
-              >
+              <div style={{ width: 960, height: 600, margin: "0 auto" }}>
                 <iframe
                   ref={iframeRef}
                   src="/unity/index.html"
@@ -138,8 +130,9 @@ useEffect(() => {
               <div className="grid grid-cols-2 gap-6 mt-6 text-center">
                 <div>
                   <p>Scan to join</p>
+                  {/* 🔧 FIX: HashRouter-safe link */}
                   <QRCodeCanvas
-                    value={`${window.location.origin}/?lobbyId=${lobbyId}`}
+                    value={`${window.location.origin}/#/?lobbyId=${lobbyId}`}
                     size={160}
                   />
                 </div>
@@ -170,18 +163,14 @@ useEffect(() => {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Name</TableHead>
-                      <TableHead className="text-right">
-                        Score
-                      </TableHead>
+                      <TableHead className="text-right">Score</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {playersList.map((p) => (
                       <TableRow key={p.id}>
                         <TableCell>{p.name}</TableCell>
-                        <TableCell className="text-right">
-                          {p.score}
-                        </TableCell>
+                        <TableCell className="text-right">{p.score}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
