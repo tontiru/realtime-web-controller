@@ -140,11 +140,13 @@ io.on("connection", (socket) => {
 		io.to(lobbyId).emit("player-updated", lobbies[lobbyId].players);
 	  }
 
-	  io.to(lobbyId).emit("unity-event", {
-		type: type || "BUTTON",
-		action,
-		playerId: socket.id,
-	  });
+	io.to(lobbyId).emit("unity-event", {
+	  type: type || "BUTTON",
+	  action,
+	  playerId: socket.id,
+	  playerName: player?.name ?? "Player",
+	});
+
 
 	  console.log("[SERVER] unity-event emitted:", lobbyId, action);
 	});
