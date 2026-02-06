@@ -11,9 +11,9 @@
     html, body {
       margin: 0;
       padding: 0;
-      background: black;
       width: 100%;
       height: 100%;
+      background: black;
       overflow: hidden;
     }
 
@@ -26,28 +26,63 @@
       background: black;
     }
 
-    /* FIXED SIZE — NO RESPONSIVE SCALING */
+    /* Fixed visual size (Unity controls render size) */
     #unity-canvas {
       width: 960px;
       height: 600px;
       background: black;
       display: block;
     }
+
+    #unity-loading-bar {
+      position: absolute;
+      bottom: 20px;
+      width: 300px;
+    }
+
+    #unity-progress-bar-empty {
+      width: 100%;
+      height: 10px;
+      background: #222;
+    }
+
+    #unity-progress-bar-full {
+      width: 0%;
+      height: 100%;
+      background: #f4c430;
+    }
   </style>
 </head>
 
 <body>
   <div id="unity-container">
-    <canvas id="unity-canvas"></canvas>
+    <canvas id="unity-canvas" tabindex="-1"></canvas>
+
+    <div id="unity-loading-bar">
+      <div id="unity-progress-bar-empty">
+        <div id="unity-progress-bar-full"></div>
+      </div>
+    </div>
   </div>
 
   <script>
+    /*****************************************************************
+     * GLOBAL STATE GUARDS (CRITICAL)
+     *****************************************************************/
+    let unityInstance = null;
+    let unityBooted = false;      // createUnityInstance resolved
+    let unityAcceptingMessages = false; // enabled by C# after first frame
+
+    /*****************************************************************
+     * DOM REFERENCES
+     *****************************************************************/
     const canvas = document.getElementById("unity-canvas");
+    const loadingBar = document.getElementById("unity-loading-bar");
+    const progressBarFull = document.getElementById("unity-progress-bar-full");
 
-    //HARD-LOCK ACTUAL CANVAS RESOLUTION
-    canvas.width = 960;
-    canvas.height = 600;
-
+    /*****************************************************************
+     * UNITY BUILD CONFIG
+     *****************************************************************/
     const buildUrl = "Build";
     const loaderUrl = buildUrl + "/WebSocketTest.loader.js";
 
@@ -60,60 +95,108 @@
       productName: "BSG",
       productVersion: "0.1.0",
 
-      // CRITICAL FOR WEBGL STABILITY
+      // Stability settings
       devicePixelRatio: 1,
       matchWebGLToCanvasSize: true,
     };
 
-    const script = document.createElement("script");
-    script.src = loaderUrl;
+    /*****************************************************************
+     * LOAD UNITY
+     *****************************************************************/
+    loadingBar.style.display = "block";
 
-    script.onload = () => {
-      createUnityInstance(canvas, config)
-        .then((unityInstance) => {
-          // expose for HostView
-          window.unityInstance = unityInstance;
+    const loaderScript = document.createElement("script");
+    loaderScript.src = loaderUrl;
 
-          // GUARANTEED HANDSHAKE WITH HOST
-          try {
-            if (window.parent && window.parent !== window) {
-              window.parent.postMessage({ type: "UNITY_READY" }, "*");
-            } else {
-              window.postMessage({ type: "UNITY_READY" }, "*");
-            }
-          } catch (e) {
-            console.warn("UNITY_READY postMessage failed:", e);
-          }
+    loaderScript.onload = () => {
+      createUnityInstance(
+        canvas,
+        config,
+        (progress) => {
+          progressBarFull.style.width = (progress * 100) + "%";
+        }
+      ).then((instance) => {
+        unityInstance = instance;
+        unityBooted = true;
 
-          console.log("Unity ready");
+        loadingBar.style.display = "none";
 
-          // LISTEN FOR MESSAGES FROM HOST
-          window.addEventListener("message", (event) => {
-            console.log("Unity received postMessage:", event.data);
-            
-            if (event.data?.type === "unity-event" || event.data?.action) {
-              console.log("Forwarding to Unity C# via SendMessage");
-              try {
-                window.unityInstance.SendMessage(
-                  "WebGLBridge",
-                  "OnControllerEvent",
-                  JSON.stringify(event.data)
-                );
-                console.log("Message sent to Unity C#");
-              } catch (e) {
-                console.error("Failed to send to Unity:", e);
-              }
-            }
-          });
+        console.log("[Unity] createUnityInstance resolved");
 
-          console.log("Unity message listener registered");
-        })
-        .catch((err) => {
-          console.error("Unity failed to load:", err);
-        });
+        // Notify host/parent that Unity EXISTS (not yet accepting input)
+        try {
+          const target =
+            window.parent && window.parent !== window
+              ? window.parent
+              : window;
+
+          target.postMessage({ type: "UNITY_READY" }, "*");
+        } catch (e) {
+          console.warn("UNITY_READY postMessage failed:", e);
+        }
+
+      }).catch((err) => {
+        console.error("Unity failed to load:", err);
+      });
     };
 
-    document.body.appendChild(script);
+    document.body.appendChild(loaderScript);
+
+    /*****************************************************************
+     * MESSAGE HANDLING (HOST / SOCKET / CONTROLLERS → UNITY)
+     *****************************************************************/
+    window.addEventListener("message", (event) => {
+      if (!event.data) return;
+
+      // 🔒 HARD GATES
+      if (!unityBooted) return;
+      if (!unityAcceptingMessages) return;
+      if (!unityInstance) return;
+
+      // Prevent echo loops
+      if (event.data.__fromUnity === true) return;
+
+      // Explicit allow-list
+      if (event.data.type !== "controller-input") return;
+
+      try {
+        unityInstance.SendMessage(
+          "WebGLBridge",
+          "OnControllerEvent",
+          JSON.stringify(event.data)
+        );
+      } catch (e) {
+        console.error("SendMessage failed:", e);
+      }
+    });
+
+    /*****************************************************************
+     * UNITY → JS CALLED FUNCTIONS
+     * (called via Application.ExternalCall / JSImport)
+     *****************************************************************/
+
+    // Called from C# AFTER first frame
+    window.UnityEnableMessages = () => {
+      console.log("[Unity] Accepting external messages");
+      unityAcceptingMessages = true;
+    };
+
+    // Optional: Unity → Host forwarding (safe, stamped)
+    window.UnityPostToHost = (payloadJson) => {
+      try {
+        const payload = JSON.parse(payloadJson);
+        payload.__fromUnity = true;
+
+        const target =
+          window.parent && window.parent !== window
+            ? window.parent
+            : window;
+
+        target.postMessage(payload, "*");
+      } catch (e) {
+        console.error("UnityPostToHost failed:", e);
+      }
+    };
   </script>
 </body>
 </html>
