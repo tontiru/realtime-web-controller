@@ -113,27 +113,20 @@ function HostView() {
           ) : (
             <>
               {/* UNITY IFRAME */}
-				<div
-				  style={{
-					display: "flex",
-					justifyContent: "center",
-					alignItems: "center",
-					width: "100%",
-					minHeight: "100vh",
-				  }}
-				>
-				  <iframe
-					ref={iframeRef}
-					src="/unity/index.html"
-					title="Unity Game"
-					width="1920"
-					height="1080"
-					style={{
-					  border: "none",
-					  display: "block",
-					}}
-				  />
-				</div>
+              <div style={{ width: 960, height: 600, margin: "0 auto" }}>
+                <iframe
+                  ref={iframeRef}
+                  src="/unity/index.html"
+                  title="Unity Game"
+                  width="960"
+                  height="600"
+                  style={{
+                    border: "none",
+                    pointerEvents: unityReady ? "auto" : "none",
+                  }}
+                />
+              </div>
+
               {/* LOBBY INFO */}
               <div className="grid grid-cols-2 gap-6 mt-6 text-center">
                 <div>
